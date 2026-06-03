@@ -1,0 +1,16 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: #0d0d0d;
+  color: #e8e8e8;
+  font-family: 'DM Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 14px;
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+::selection { background: #0078d420; color: #5bb3f5; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
