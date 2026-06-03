@@ -295,6 +295,13 @@ export default function Home() {
       try {
         addLog(`Downloading: ${proj.name} / ${repo.name}`, 'info')
         const r = await fetch(url)
+        if (r.status === 204) {
+          setRepoStatus(prev => ({ ...prev, [repo.id]: 'empty' }))
+          addLog(`Skipped: ${repo.name} — empty repo`, '')
+          done++
+          setProgress({ done, total: repos.length })
+          continue
+        }
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         const blob = await r.blob()
         const a = document.createElement('a')
@@ -592,15 +599,16 @@ export default function Home() {
                                 <div key={repo.id} style={{
                                   display: 'flex', alignItems: 'center', gap: '8px',
                                   fontSize: '12px', padding: '3px 0',
-                                  color: st === 'done' ? '#6bcf7a' : st === 'error' ? '#ff7070' : st === 'downloading' ? T.accent : T.textMuted,
+                                  color: st === 'done' ? '#6bcf7a' : st === 'error' ? '#ff7070' : st === 'empty' ? '#555' : st === 'downloading' ? T.accent : T.textMuted,
                                 }}>
                                   <span style={{
                                     width: '5px', height: '5px', borderRadius: '50%', flexShrink: 0,
-                                    background: st === 'done' ? '#6bcf7a' : st === 'error' ? '#ff7070' : st === 'downloading' ? T.accent : 'rgba(255,255,255,0.2)',
+                                    background: st === 'done' ? '#6bcf7a' : st === 'error' ? '#ff7070' : st === 'empty' ? '#444' : st === 'downloading' ? T.accent : 'rgba(255,255,255,0.2)',
                                     ...(st === 'downloading' ? { animation: 'pulse 0.9s ease-in-out infinite' } : {}),
                                   }} />
                                   {repo.name}
                                   {st === 'done' && <span style={{ opacity: 0.7 }}>✓</span>}
+                                  {st === 'empty' && <span style={{ opacity: 0.5, fontSize: '10px' }}>empty</span>}
                                   {st === 'error' && <span style={{ opacity: 0.7 }}>✗</span>}
                                 </div>
                               )
