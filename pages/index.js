@@ -248,6 +248,7 @@ export default function Home() {
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [logs, setLogs] = useState([]);
   const [showRepos, setShowRepos] = useState(false);
+  const [includeDb, setIncludeDb] = useState(true);
   const logRef = useRef(null);
 
   useEffect(() => {
@@ -320,8 +321,10 @@ export default function Home() {
     });
   };
 
+  const dbEnabled = includeDb && data?.dbConfigured;
+
   const startBackup = async () => {
-    if (!data || running || selectedRepos === 0) return;
+    if (!data || running || (selectedRepos === 0 && !dbEnabled)) return;
     const repos = [];
     data.projects.forEach((proj) => {
       if (selected.has(proj.id))
@@ -350,15 +353,34 @@ export default function Home() {
     setRepoStatus(statusObj);
 
     addLog(`Bundling ${repos.length} repo(s) into a single ZIP...`, "info");
+    if (dbEnabled)
+      addLog("Dumping database — this runs after the repos.", "info");
 
     try {
       const r = await fetch("/api/backup-all", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repos }),
+        body: JSON.stringify({ repos, includeDatabase: dbEnabled }),
       });
 
-      if (!r.ok) throw new Error(`Server error: HTTP ${r.status}`);
+      if (!r.ok) {
+        const msg = await r
+          .json()
+          .then((j) => j.error)
+          .catch(() => null);
+        throw new Error(msg || `Server error: HTTP ${r.status}`);
+      }
+
+      const dbHeader = r.headers.get("X-Backup-Db");
+      if (dbHeader) {
+        const s = JSON.parse(dbHeader);
+        addLog(`Database "${s.db}": ${s.collections} collections dumped.`, "ok");
+        if (s.failed > 0)
+          addLog(
+            `${s.failed} collection(s) failed — see DATABASE-RESTORE.md in the ZIP.`,
+            "err",
+          );
+      }
 
       addLog("Receiving bundle...", "info");
       const blob = await r.blob();
@@ -379,7 +401,7 @@ export default function Home() {
       setRepoStatus(doneObj);
       setProgress({ done: repos.length, total: repos.length });
       addLog(
-        `Done! Single ZIP downloaded with ${repos.length} repos inside.`,
+        `Done! Single ZIP downloaded with ${repos.length} repos${dbEnabled ? " and the database dump" : ""} inside.`,
         "ok",
       );
     } catch (e) {
@@ -718,13 +740,64 @@ export default function Home() {
               </div>
             )}
 
+            {/* Database toggle */}
+            {data && !loading && data.dbConfigured && (
+              <div
+                className="fade3"
+                onClick={() => !running && setIncludeDb((v) => !v)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  background: T.card,
+                  border: `1px solid ${includeDb ? T.cardBorder : "rgba(255,255,255,0.06)"}`,
+                  borderRadius: "12px",
+                  padding: "14px 16px",
+                  marginBottom: "24px",
+                  cursor: running ? "not-allowed" : "pointer",
+                  transition: "border-color 0.15s",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={includeDb}
+                  disabled={running}
+                  onChange={() => setIncludeDb((v) => !v)}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    accentColor: T.accent,
+                    width: "15px",
+                    height: "15px",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div
+                    style={{ fontSize: "13px", color: T.text, fontWeight: 500 }}
+                  >
+                    Include database backup
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      color: T.textMuted,
+                      marginTop: "2px",
+                    }}
+                  >
+                    Full MongoDB dump, restorable with mongorestore
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Main CTA */}
             {data && !loading && (
               <div className="fade4">
                 <button
                   className="bigbtn"
                   style={btnStyle}
-                  disabled={running || selectedRepos === 0}
+                  disabled={running || (selectedRepos === 0 && !dbEnabled)}
                   onClick={startBackup}
                 >
                   {running ? (

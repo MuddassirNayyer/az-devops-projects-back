@@ -47,7 +47,9 @@ export default async function handler(req, res) {
       })
     )
 
-    return res.status(200).json({ org, projects: result })
+    return res
+      .status(200)
+      .json({ org, projects: result, dbConfigured: Boolean(process.env.MONGODB_URI) })
   } catch (err) {
     return res.status(500).json({ error: err.message })
   }
